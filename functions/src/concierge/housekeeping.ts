@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions';
 import { db, firestore } from '../_firebaseHelper';
-import { updateComponent } from '../_statuspageHelper';
+import { postIncident, SPIncident, updateIncident } from '../_statuspageHelper';
 import { Component } from '../_models';
 
 export const housekeeping = functions.pubsub.schedule('every 30 minutes').onRun(async (context) => {
@@ -25,25 +25,64 @@ async function _housekeeping() {
     if(timeWithinRangeOf(new Date(), data.lastCheckIn, minutes(30))) {
       // they're "operational"
       if(data.status !== 'operational') {
-        const update: Partial<Component> = {
+        // Tell our database what's happening
+        const fbUpdate: Partial<Component> = {
           status: 'operational'
         };
-        await snap.ref.update(update);
-        await updateComponent(data.pageId, data.componentId, {
-          status: 'operational'
-        });
+        if(data.incident_id) {
+          fbUpdate.incident_id = null;
+        }
+        await snap.ref.update(fbUpdate);
+
+        // Update the StatusPage incident
+        if(data.incident_id) {
+          const spUpdate: Partial<SPIncident> = {
+            status: 'resolved',
+            components: {}
+          };
+          spUpdate.components![data.componentId] = 'operational';
+          await updateIncident(data.pageId, data.incident_id, spUpdate);
+        }
+        
+
+        // await updateComponent(data.pageId, data.componentId, {
+        //   status: 'operational'
+        // });
       }
     }
     else {
       // otherwise, they're considered "major_outage"
       if(data.status !== 'major_outage') {
-        const update: Partial<Component> = {
+        // Tell our database what's happening
+        const fbUpdate: Partial<Component> = {
           status: 'major_outage'
         };
-        await snap.ref.update(update);
-        await updateComponent(data.pageId, data.componentId, {
-          status: 'major_outage'
-        });
+        await snap.ref.update(fbUpdate);
+
+        // Compose the StatusPage incident
+        const thirty_minutes_ago = new Date(new Date().valueOf() - minutes(30));
+        const last_check_in = data.lastCheckIn instanceof Date ? data.lastCheckIn : data.lastCheckIn.toDate();
+
+        const spUpdate: Partial<SPIncident> = {
+          name: `${data.displayName} - Offline`,
+          status: 'investigating',
+          impact_override: 'major',
+          body: `<em>${data.displayName}</em> missed the check-in interval. It was last heard from at ${last_check_in.toUTCString()}. It was expected to check in at or after ${thirty_minutes_ago.toUTCString()}.`,
+          components: {}
+        };
+        spUpdate.components![data.componentId] = 'major_outage';
+
+        // Submit and save the incident
+        const incident = await postIncident(data.pageId, spUpdate);
+
+        // Save to our database the incident ID
+        fbUpdate.incident_id = incident.id;
+        await snap.ref.update(fbUpdate);
+
+        // This is done automatically now when an incident is created
+        // await updateComponent(data.pageId, data.componentId, {
+        //   status: 'major_outage'
+        // });
       }
     }
   }
