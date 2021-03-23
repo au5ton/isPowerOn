@@ -43,11 +43,6 @@ async function _housekeeping() {
           spUpdate.components![data.componentId] = 'operational';
           await updateIncident(data.pageId, data.incident_id, spUpdate);
         }
-        
-
-        // await updateComponent(data.pageId, data.componentId, {
-        //   status: 'operational'
-        // });
       }
     }
     else {
@@ -78,11 +73,6 @@ async function _housekeeping() {
         // Save to our database the incident ID
         fbUpdate.incident_id = incident.id;
         await snap.ref.update(fbUpdate);
-
-        // This is done automatically now when an incident is created
-        // await updateComponent(data.pageId, data.componentId, {
-        //   status: 'major_outage'
-        // });
       }
     }
   }
