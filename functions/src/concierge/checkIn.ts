@@ -1,34 +1,42 @@
 import * as functions from 'firebase-functions';
 import { db } from '../_firebaseHelper';
-import { updateComponent } from '../_statuspageHelper';
+import { SPIncident, updateIncident } from '../_statuspageHelper';
 import { Component } from '../_models';
 
 export const checkIn = functions.https.onRequest(async (request, response) => {
   // verify parameters
   if(request.query.id && typeof(request.query.id) === 'string') {
     // create reference
-    const docRef = db.collection('components').doc(request.query.id);
-    const docSnap = await docRef.get();
-    const docData = docSnap.data() as Component;
+    const doc = db.collection('components').doc(request.query.id);
+    const snap = await doc.get();
+    const data = snap.data() as Component;
     
     // verify existence
-    if(docSnap.exists) {
+    if(snap.exists) {
       // check in
-      const updateData: Partial<Component> = {
+      const fbUpdate: Partial<Component> = {
         lastCheckIn: new Date()
       };
+      await snap.ref.update(fbUpdate);
 
-      // check if previous status was problematic
-      if(docData.status !== 'operational') {
-        updateData.status = 'operational';
-      }
+      // they're "operational"
+      if(data.status !== 'operational') {
+        // Tell our database what's happening
+        fbUpdate.status = 'operational';
+        fbUpdate.incidentId = null;
+        await snap.ref.update(fbUpdate);
 
-      await docRef.update(updateData);
-      if(docData.status !== 'operational') {
-        await updateComponent(docData.pageId, docData.componentId, {
-          status: 'operational'
-        });
+        // Update the StatusPage incident
+        if(data.incidentId) {
+          const spUpdate: Partial<SPIncident> = {
+            status: 'resolved',
+            components: {}
+          };
+          spUpdate.components![data.componentId] = 'operational';
+          await updateIncident(data.pageId, data.incidentId, spUpdate);
+        }
       }
+      
       response.sendStatus(200);
     }
     else {

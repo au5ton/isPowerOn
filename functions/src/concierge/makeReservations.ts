@@ -27,7 +27,7 @@ export const makeReservations = functions.https.onRequest(async (request, respon
             pageId: item.page_id,
             componentId: item.id,
             status: item.status,
-            incident_id: null,
+            incidentId: null,
             lastCheckIn: new Date()
           };
           await db.collection('components').add(data);

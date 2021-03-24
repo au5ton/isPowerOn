@@ -27,21 +27,19 @@ async function _housekeeping() {
       if(data.status !== 'operational') {
         // Tell our database what's happening
         const fbUpdate: Partial<Component> = {
-          status: 'operational'
+          status: 'operational',
+          incidentId: null
         };
-        if(data.incident_id) {
-          fbUpdate.incident_id = null;
-        }
         await snap.ref.update(fbUpdate);
 
         // Update the StatusPage incident
-        if(data.incident_id) {
+        if(data.incidentId) {
           const spUpdate: Partial<SPIncident> = {
             status: 'resolved',
             components: {}
           };
           spUpdate.components![data.componentId] = 'operational';
-          await updateIncident(data.pageId, data.incident_id, spUpdate);
+          await updateIncident(data.pageId, data.incidentId, spUpdate);
         }
       }
     }
@@ -71,7 +69,7 @@ async function _housekeeping() {
         const incident = await postIncident(data.pageId, spUpdate);
 
         // Save to our database the incident ID
-        fbUpdate.incident_id = incident.id;
+        fbUpdate.incidentId = incident.id;
         await snap.ref.update(fbUpdate);
       }
     }
