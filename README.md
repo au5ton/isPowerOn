@@ -1,7 +1,7 @@
 isPowerOn
 =========
 
-Serverless API to track if a service is responsive or not with StatusPage.io
+Serverless API to track if anything you want is responsive or not with StatusPage.io 
 
 ## What is this?
 
